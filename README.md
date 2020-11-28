@@ -12,4 +12,4 @@ Finally, combine these together with a driver for the T6963 LCD controller to ma
 
 Various problems needed to be solved to make the working demo show. The toolcahin used is z88dk, to access the system time the time library had to be compiled and installed. An unexpected time offset was found to be needed when using the set_system_time function.
 
-[Clock video](t6963_clock.mp4)
+[Clock video](https://youtu.be/SXmMnbZyj9E)
