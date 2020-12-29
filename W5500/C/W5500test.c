@@ -53,7 +53,20 @@ volatile int rtc_ramcpy;
 int main(void)
 {
 	int flags0, flags1, flags2, data1;
+	int io_cntr_val;
 	rtc_ramcpy=0xFF;	// readable copy of i/o register, I/O initialzed to all bit on at first write	/* Config W5500 */
+
+	
+	io_cntr_val=IO_CNTR;
+	printf("\n\rInitial IO_CNTR = 0x%02x",io_cntr_val);
+
+	printf("\n\rSetting IO_CNTR to 0x00");
+	IO_CNTR = 0;
+
+	io_cntr_val=IO_CNTR;
+	printf("\n\rPresent IO_CNTR = 0x%02x",io_cntr_val);
+
+#if 0
 
 	SPI_CS2_LO;
 
@@ -80,7 +93,7 @@ printf("\n\rf2=%02x",flags2);
 //printf("\n\r>%02x",data);
 
 
-
+#endif
 	return 0;
 }
 
