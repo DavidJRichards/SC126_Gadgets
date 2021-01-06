@@ -49,6 +49,7 @@ volatile int rtc_ramcpy;
 #define SPI_CS2_LO  ( rtc_ramcpy = IO_RTC = ( rtc_ramcpy & ~ (1 << SD_CS2) ) )
 
 // buffers for wiznet data
+volatile tbyte* __at 0xc000 Z180_Memory;	// Z180 memory
 tCommonRegs CommonRegisterBlock;
 //tSocketRegs SocketRegisterBlock[4];
 tSocketRegs SocketRegisterBlock;
@@ -62,63 +63,92 @@ tbyte RxBuffer[2048];
 int main(void)
 {
 	rtc_ramcpy=0xFF;	// readable copy of i/o register, I/O initialzed to all bit on at first write	/* Config W5500 */
-	
+
+	printf("\nZ180 Memory\n");
+	DumpHex (Z180_Memory,16384,0xc000);
+
 	printf("\nTX Buffer\n");
 	Read_Bytes(2, 0, TxBuffer, 2048);
-	DumpHex (TxBuffer,2048);
+	DumpHex (TxBuffer,2048,0);
 
 	printf("\nRX Buffer\n");
 	Read_Bytes(3, 0, RxBuffer, 2048);
-	DumpHex (RxBuffer,2048);
+	DumpHex (RxBuffer,2048,0);
 
 	printf("\nCommon Registers\n");
 	Read_Bytes(0, MR, (tbyte*)CommonRegisterBlock, 0x3A);
-	DumpHex ((tbyte*)CommonRegisterBlock,0x3A);
+	DumpHex ((tbyte*)CommonRegisterBlock,0x39,0);
 	DumpCommon();
 
 	printf("\nSocket 1 Registers\n");
 	Read_Bytes(1, Sn_MR,(tbyte*)SocketRegisterBlock, 0x30);
-	DumpHex ((tbyte*)SocketRegisterBlock,0x30);
+	DumpHex ((tbyte*)SocketRegisterBlock,0x30,0);
 	DumpSocket(&SocketRegisterBlock);
-
 
 	return 0;
 }
 
 void DumpCommon(void)
 {
-	printf("Mode                   	%02X\n",CommonRegisterBlock.Mode);
-	printf("Subnet Mask        	%d.%d.%d.%d\n",CommonRegisterBlock.SubnetMaskAddress[0],CommonRegisterBlock.SubnetMaskAddress[1],CommonRegisterBlock.SubnetMaskAddress[2],CommonRegisterBlock.SubnetMaskAddress[3]);
-	printf("Source MAC Address 	%02X:%02X:%02X:%02X:%02X:%02X\n",CommonRegisterBlock.SourceHardwareAddress[0],CommonRegisterBlock.SourceHardwareAddress[1],CommonRegisterBlock.SourceHardwareAddress[2],CommonRegisterBlock.SourceHardwareAddress[3],CommonRegisterBlock.SourceHardwareAddress[4],CommonRegisterBlock.SourceHardwareAddress[5]);
-	printf("Source IP Addr     	%d.%d.%d.%d\n",CommonRegisterBlock.SourceIP_Address[0],CommonRegisterBlock.SourceIP_Address[1],CommonRegisterBlock.SourceIP_Address[2],CommonRegisterBlock.SourceIP_Address[3]);
-	printf("Chip Version       	%02X\n",CommonRegisterBlock.ChipVersion);
+	printf("Mode                     %02X\n",CommonRegisterBlock.Mode);
+	printf("Gateway Addr             %d.%d.%d.%d\n",CommonRegisterBlock.GatewayAddress[0],CommonRegisterBlock.GatewayAddress[1],CommonRegisterBlock.GatewayAddress[2],CommonRegisterBlock.GatewayAddress[3]);
+	printf("Subnet Mask              %d.%d.%d.%d\n",CommonRegisterBlock.SubnetMaskAddress[0],CommonRegisterBlock.SubnetMaskAddress[1],CommonRegisterBlock.SubnetMaskAddress[2],CommonRegisterBlock.SubnetMaskAddress[3]);
+	printf("Source MAC Address       %02X:%02X:%02X:%02X:%02X:%02X\n",CommonRegisterBlock.SourceHardwareAddress[0],CommonRegisterBlock.SourceHardwareAddress[1],CommonRegisterBlock.SourceHardwareAddress[2],CommonRegisterBlock.SourceHardwareAddress[3],CommonRegisterBlock.SourceHardwareAddress[4],CommonRegisterBlock.SourceHardwareAddress[5]);
+	printf("Source IP Addr           %d.%d.%d.%d\n",CommonRegisterBlock.SourceIP_Address[0],CommonRegisterBlock.SourceIP_Address[1],CommonRegisterBlock.SourceIP_Address[2],CommonRegisterBlock.SourceIP_Address[3]);
+	printf("Interrupt Timer          0x%04X\n", CommonRegisterBlock.InterruptLowLevelTimer);
+	printf("Interrupt                0x%02X\n", CommonRegisterBlock.Interrupt);
+	printf("Interrupt Mask           0x%02X\n", CommonRegisterBlock.InterruptMask);
+	printf("Retry Time               0x%04X\n", CommonRegisterBlock.RetryTime);
+	printf("Retry Count              0x%02X\n", CommonRegisterBlock.RetryCount);
+	printf("PPP LCP Request Timer    0x%02X\n", CommonRegisterBlock.PPP_LCP_RequestTimer);
+	printf("PPP LCP Magic Number     0x%02X\n", CommonRegisterBlock.PPP_LCP_MagicNumber);
+	printf("PPP Destination MAC      %02X:%02X:%02X:%02X:%02X:%02X\n",CommonRegisterBlock.PPP_DestinationMAC_Address[0],CommonRegisterBlock.PPP_DestinationMAC_Address[1],CommonRegisterBlock.PPP_DestinationMAC_Address[2],CommonRegisterBlock.PPP_DestinationMAC_Address[3],CommonRegisterBlock.PPP_DestinationMAC_Address[4],CommonRegisterBlock.PPP_DestinationMAC_Address[5]);
+	printf("PPP Session Identifier   0x%04X\n", CommonRegisterBlock.PPP_SessionIdentification);
+	printf("PPP Max. Segment Size    0x%04X\n", CommonRegisterBlock.PPP_Maximum_SegmentSize);
+	printf("Unreachable IP Addr      %d.%d.%d.%d\n",CommonRegisterBlock.UnreachableIP_Address[0],CommonRegisterBlock.UnreachableIP_Address[1],CommonRegisterBlock.UnreachableIP_Address[2],CommonRegisterBlock.UnreachableIP_Address[3]);
+   printf("Unreachable Port         %u\n",CommonRegisterBlock.UnreachablePort);
+	printf("PHY Configuration        %02X\n",CommonRegisterBlock.PHY_Configuration);
+	printf("Chip Version             %02X\n",CommonRegisterBlock.ChipVersion);
 }
 
 void DumpSocket(tSocketRegs* SocketRegs) {
 
-	printf("Mode 			%0X\n",SocketRegs->Mode);	
-	printf("Command 		%02X\n",SocketRegs->Command);
-	printf("Destination IP Addr	%d.%d.%d.%d\n",SocketRegs->DestinationIP_Address[0],SocketRegs->DestinationIP_Address[1],SocketRegs->DestinationIP_Address[2],SocketRegs->DestinationIP_Address[3]);
+	printf("Mode 			            0x%02X\n",SocketRegs->Mode);	
+	printf("Command 		            0x%02X\n",SocketRegs->Command);
+	printf("Interrupt                0x%02X\n",SocketRegs->Interrupt);
+	printf("Status                   0x%02X\n",SocketRegs->Status);
+	
+   printf("Source Port              %d\n",SocketRegs->SourcePort);
+	printf("Destination MAC Addr     %02X:%02X:%02X:%02X:%02X:%02X\n",SocketRegs->DestinationHA[0],SocketRegs->DestinationHA[1],SocketRegs->DestinationHA[2],SocketRegs->DestinationHA[3],SocketRegs->DestinationHA[4],SocketRegs->DestinationHA[5]);
+	printf("Destination IP Addr      %d.%d.%d.%d\n",SocketRegs->DestinationIP_Address[0],SocketRegs->DestinationIP_Address[1],SocketRegs->DestinationIP_Address[2],SocketRegs->DestinationIP_Address[3]);
+   printf("Destination Port         %u\n",SocketRegs->DestinationPort);
+   printf("Max Segment Size         0x%04X\n",SocketRegs->MaximumSegmentSize);
+	printf("IP TOS                   0x%02X\n",SocketRegs->IP_TOS);
+	printf("IP TTL                   0x%02X\n",SocketRegs->IP_TTL);
+	
+	printf("Receive Buffer Size      %d\n", SocketRegs->ReceiveBufferSize);
+	printf("Transmit Buffer Size     %d\n", SocketRegs->TransmitBufferSize);
+	printf("Tx Free Size             0x%04X\n", SocketRegs->TX_FreeSize);
+	printf("Tx Read Pointer          0x%04X\n", SocketRegs->TX_ReadPointer);
+	printf("Tx Write Pointer         0x%04X\n", SocketRegs->TX_WritePointer);  
 
-	printf("Receive Buffer Size     %d\n", SocketRegs->ReceiveBufferSize);
-	printf("Transmit Buffer Size    %d\n", SocketRegs->TransmitBufferSize);
-	printf("Tx Free Size            0x%04X\n", SocketRegs->TX_FreeSize);
-	printf("Tx Read Pointer         0x%04X\n", SocketRegs->TX_ReadPointer);
-	printf("Tx Write Pointer        0x%04X\n", SocketRegs->TX_WritePointer);
+	printf("Rx Received Size         0x%04X\n", SocketRegs->RX_ReceivedSize);
+	printf("Rx Read Pointer          0x%04X\n", SocketRegs->RX_ReadPointer);
+	printf("Rx Write Pointer         0x%04X\n", SocketRegs->RX_WritePointer);
 
-	printf("Rx Received Size        0x%04X\n", SocketRegs->RX_ReceivedSize);
-	printf("Rx Read Pointer         0x%04X\n", SocketRegs->RX_ReadPointer);
-	printf("Rx Write Pointer        0x%04X\n", SocketRegs->RX_WritePointer);
+	printf("Interrupt Mask           0x%02X\n",SocketRegs->InterruptMask);
+	printf("Fragment Off in IP hdr   0x%04X\n",SocketRegs->FrafmentOffsetInIP_Header);
+	printf("Keep Alive Timer         0x%02X\n",SocketRegs->KeepAliveTimer);	
 
 }
 
-void DumpHex(const void* data, size_t size) {
+void DumpHex(const void* data, size_t size, size_t disp_addr) {
 	char ascii[17];
 	size_t i, j;
 	ascii[16] = '\0';
 	for (i = 0; i < size; ++i) {
-		if(i%16==0){
-			printf(" %04X | ",i);
+		if((disp_addr+i)%16==0){
+			printf(" %04X | ",disp_addr+i);
 		}
 
 		printf("%02X ", ((unsigned char*)data)[i]);

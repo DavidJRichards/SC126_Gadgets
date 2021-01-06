@@ -7,17 +7,19 @@ typedef struct sCommonRegs {
    tbyte SubnetMaskAddress[4];
    tbyte SourceHardwareAddress [6];
    tbyte SourceIP_Address[4];
-   tbyte InterruptLowLevelTimer[2];
+   tword InterruptLowLevelTimer;
    tbyte Interrupt;
    tbyte InterruptMask;
    tbyte SocketInterrupt;
-   tbyte RetryTime[2];
+   tbyte SocketInterruptMask;
+   tword RetryTime;
    tbyte RetryCount;
    tbyte PPP_LCP_RequestTimer;
+   tbyte PPP_LCP_MagicNumber;
    tbyte PPP_DestinationMAC_Address[6];
    tbyte PPP_SessionIdentification[2];
    tbyte PPP_Maximum_SegmentSize[2];
-   tbyte UnreachableIP_Address;
+   tbyte UnreachableIP_Address[4];
    tbyte UnreachablePort[2];
    tbyte PHY_Configuration;
    tbyte reserved1[9];
@@ -27,7 +29,7 @@ typedef struct sCommonRegs {
 typedef struct sSocketRegs {
    tbyte Mode;
    tbyte Command;
-   tbyte Interupt;
+   tbyte Interrupt;
    tbyte Status;
    tword SourcePort;
    tbyte DestinationHA[6];
@@ -58,7 +60,7 @@ typedef struct sSocketRegs {
 //tbyte TxBuffer[2048];
 //tbyte RxBuffer[2048];
 
-void DumpHex(const void* data, size_t size);
+void DumpHex(const void* data, size_t size, size_t disp_addr);
 void DumpCommon(void);
 void DumpSocket(tSocketRegs* SocketRegs);
 //unsigned char Read_Bytes(tbyte * data, unsigned short reg, unsigned short count);
