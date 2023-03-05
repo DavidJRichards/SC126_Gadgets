@@ -23,3 +23,7 @@ The Wiznet W5500 module connected to the SC126 second SPI port
 
 This shows the SPI protocol witing to the W5500
 ![Alt text](DSView-SC126-set-MAC-test.png?raw=true "DSView")
+
+HD 44780 LCD Test program and console display patched into RomWbw ASC output
+[Link text](https://github.com/DavidJRichards/SC126_Gadgets/tree/main/HD44780)
+

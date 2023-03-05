@@ -1,0 +1,30 @@
+;hd44780te.z80
+;Hello world using LCD libraries
+
+;Constants
+lcd_command equ $00     ;LCD command I/O port
+lcd_data equ $01        ;LCD data I/O port
+   
+        org 100H
+        
+program_entry:    
+    
+    call lcd_initialise ;Setup LCD display
+    
+    ld hl, splash_message
+    call lcd_send_asciiz
+    
+    ld de,$0001         ;Position cursor on second line
+    call lcd_gotoxy
+    
+    call lcd_cursor_on  ;Turn the cursor on
+    ret
+
+splash_message:
+
+    db "djrm SC126 HD44780",0    
+
+;Libraries
+;---------   
+include "CharLCDLib.z80"
+
