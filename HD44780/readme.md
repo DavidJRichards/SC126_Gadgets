@@ -51,6 +51,11 @@ include "CharLCDLib.z80"
 ```
 I used a simple Z80 assembler 'pasmo' to make the com file.
 
+Changes to RomWbw are copied into the hbios and config directories here:
+[Files](./hbios)
+
+The changes to the prototype board I/O decoding used is shown here
+[Decode i/o](./decode_io.jpg) It involved cutting some board tracks between pins ground and pins 1,2,3,4,5 on the HCT688 chip - it would have been easier to do before soldering the chip in place.
 
 ### Links
 [Pasmo assembler](https://pasmo.speccy.org/pasmodoc.html)
