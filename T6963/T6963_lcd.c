@@ -16,12 +16,14 @@
 
 #include "T6963_lcd.h"
 #include "lulu64.c"
+#include "MyFont.c"
 
 extern void rtc_init(void);
 extern void rtc_get_date(unsigned char *day, unsigned char *mth, unsigned char *year, unsigned char *dow);
 extern void rtc_get_time(unsigned char *hr, unsigned char *min, unsigned char *sec);
 
 void GDispPixFontAt(unsigned int X, unsigned int Y, unsigned char* textptr, unsigned char size, int color);
+void lcd_font_load(void);
 
 // SC126 I/O T6963 CLCD I/O port definitions
 #define T6963_PORT	0x0	// T6963 port base address
@@ -108,10 +110,7 @@ volatile int i2c_ramcpy;	// readable copy of output register
 #define PIXELWIDTH  8
 #endif
 
-//#define TEXT_STARTADDRESS       0x0000
-//#define GRAPHIC_STARTADDRESS    0x1000
 #define TEXT_STARTADDRESS       0x000
-//#define GRAPHIC_STARTADDRESS    0x280
 #define GRAPHIC_STARTADDRESS    0x400
 
 
@@ -126,8 +125,10 @@ volatile int i2c_ramcpy;	// readable copy of output register
 
 #define _TH 0
 #define _GH (_TH+sizeTA)
-   
-   
+#define _CG_OFFSET ((_sizeMem/2)-1) 
+#define _CG_STARTADDRESS 0x1800   		// 0x1800 to 0x1FFF, Chr[80] is at 0x1C00
+
+// clock face definitions   
 #define CENTERX 190
 #define CENTERY 50
 #define INNER_RADIUS    46
@@ -401,7 +402,7 @@ printf("\n\r");
 
     // set offset register
     lcd_check_status(STA01);
-    lcd_data(((_sizeMem/2)-1));
+    lcd_data(_CG_OFFSET);		// cg[80] RAM at 0x1800 + 0x400
     lcd_check_status(STA01);
     lcd_data(0x00);
     lcd_check_status(STA01);
@@ -417,26 +418,31 @@ printf("\n\r");
 #endif       
 }
 
+void lcd_ADPSET(unsigned int addr)
+{
+    //#define status_wait(sbits) (while( !((CLCD_CMD & sbits) == sbits) ))
+    //#define status_wait(bits) (CLCD_CMD & bits)
+    //while(!((CLCD_CMD & STA01) == STA01));
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_DATA=(addr%0x100);       // set low byte
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_DATA=(addr/0x100);       // set high byte
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_CMD=(ADPSET);           // set address pointer
+}
+
+
 // put a text string at position x,y (character row,column)
 void lcd_string(char x,char y,char *s)
 {
-    int adr;
-    //adr=TEXT_STARTADDRESS+x+y*LCD_WIDTH;
-    adr = _TH +  x + (_TA * y);
-    lcd_check_status(STA01);
-    lcd_data(adr%0x100);
-    lcd_check_status(STA01);
-    lcd_data(adr/0x100);
-    lcd_check_status(STA01);
-    lcd_command(ADPSET);
-
+    lcd_ADPSET(_TH +  x + (_TA * y));
     lcd_check_status(STA3);
     lcd_command(AWRON);    
     while (s[0])
     {
+    	while(!((CLCD_CMD & STA3) == STA3));
         // convert from ascii to t6963
-        lcd_check_status(STA3);
-        lcd_data(s[0]-32);
+        CLCD_DATA=(s[0]-32);
         s++;
     }
     lcd_check_status(STA3);
@@ -444,26 +450,13 @@ void lcd_string(char x,char y,char *s)
 }
 
 //-------------------------------------------------------------------------------------------------
-//
-// Sets address pointer for display RAM memory
-//
-//-------------------------------------------------------------------------------------------------
-void SetAddressPointer(unsigned int address){
-  lcd_check_status(STA01);
-  lcd_data(address & 0xFF);
-  lcd_check_status(STA01);
-  lcd_data(address >> 8);
-  lcd_check_status(STA01);
-  lcd_command(APS);
-}
-//-------------------------------------------------------------------------------------------------
 // Writes display data and increment address pointer
 //-------------------------------------------------------------------------------------------------
 void WriteDisplayData(unsigned char x){
-	lcd_check_status(STA01);
-	lcd_data(x);
-	lcd_check_status(STA01);
-	lcd_command(DWAAI);
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_DATA=(x); 
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_CMD=(DWAAI);     
 }
 //-------------------------------------------------------------------------------------------------
 //
@@ -471,9 +464,12 @@ void WriteDisplayData(unsigned char x){
 //
 //-------------------------------------------------------------------------------------------------
 void clearText(){
-  SetAddressPointer(_TH);
+  lcd_ADPSET(_TH);
   for(int i = 0; i < sizeTA; i++){
-    WriteDisplayData(0);
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_DATA=(0); 
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_CMD=(DWAAI);     
   }
 }
 
@@ -482,9 +478,12 @@ void clearText(){
 //-------------------------------------------------------------------------------------------------
 void clearCG(){
   unsigned int i=((_sizeMem/2)-1)*0x800;
-  SetAddressPointer(i);
+  lcd_ADPSET(i);
   for(i = 0; i < 256 * 8; i++){
-    WriteDisplayData(0);
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_DATA=(0); 
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_CMD=(DWAAI);     
   }
 }
 
@@ -493,11 +492,12 @@ void clearCG(){
 //-------------------------------------------------------------------------------------------------
 void clearGraphic(){
   long i;
-  SetAddressPointer(_GH);
-//  for(unsigned int i = 0; i < sizeGA; i++){
+  lcd_ADPSET(_GH);
   for(i = 0; i < sizeGA; i++){
-//  for(i = 0; i < 0x800; i++){
-    WriteDisplayData(0x00);
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_DATA=(0); 
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_CMD=(DWAAI);     
   }
 }
 
@@ -517,18 +517,12 @@ printf(".");
 void lcd_cls_()
 {
     int a;
-    lcd_check_status(STA01);
-    lcd_data(0x00);
-    lcd_check_status(STA01);
-    lcd_data(0x00);
-    lcd_check_status(STA01);
-    lcd_command(ADPSET);
-
+    lcd_ADPSET(0);
     lcd_check_status(STA3);
     lcd_command(AWRON);
     for (a=0; a<8192; a++){
-      lcd_check_status(STA3);
-      lcd_data(0);
+      while(!((CLCD_CMD & STA01) == STA3));
+      CLCD_DATA=(0); 
     }
     lcd_check_status(STA3);
     lcd_command(AWROFF);
@@ -537,22 +531,12 @@ void lcd_cls_()
 // set or reset a pixel on the display on position x,y with color 0 or 1
 void lcd_plot(char x,char y,char color)
 {
-    int adr;
-    unsigned char tmp=0b11111000;                         
-    adr = _GH + (x / _FW) + (_GA * y);
-
-    lcd_check_status(STA01);
-    lcd_data(adr%0x100);       // set low byte
-    lcd_check_status(STA01);
-    lcd_data(adr/0x100);       // set high byte
-    lcd_check_status(STA01);
-    lcd_command(ADPSET);           // set address pointer
-
+    unsigned char tmp=0b11111000;    
+    lcd_ADPSET(_GH + (x / _FW) + (_GA * y));
     if(color) tmp = BS; else tmp = BR;
     tmp |= (_FW-1)-(x%_FW);
-    lcd_check_status(STA01);
-    lcd_command(tmp);
-
+    while(!((CLCD_CMD & STA01) == STA01));
+    CLCD_CMD=(tmp);    
 }
 
 // Bresenham line routine
@@ -808,6 +792,13 @@ int main()
 
     lcd_bitmap(&lulu64, 34, 34);
 
+    lcd_font_load();
+    lcd_string(0,5, " \xa0 \xa1 \xa2 \xa3 \xa4 \xa5 \xa6 \xa7");
+    lcd_string(0,7, " \xa8 \xa9 \xaa \xab \xac \xad \xae \xaf");
+    lcd_string(0,9, " \xb0 \xb1 \xb2 \xb3 \xb4 \xb5 \xb6 \xb7");
+    lcd_string(0,11," \xb8 \xb9 \xba \xbb \xbc ");
+//14
+
     // draw outer circle of analog clock
     lcd_circle(CENTERX,CENTERY,OUTER_RADIUS+1,1);    
    
@@ -901,6 +892,96 @@ int main()
     }
 
   return 0;
+}
+
+//=======================================================================================================
+#if 0
+ typedef struct {
+     const uint8_t *data;
+     uint16_t width;
+     uint16_t height;
+     uint8_t dataSize;
+     } tImage;
+
+typedef struct {
+     long int code;
+     const tImage *image;
+     const int image_left;
+     const int image_top;
+     const int char_width;
+     const int char_height;
+     } tChar;
+
+typedef struct {
+     int length;
+     const tChar *chars;
+     } tFont;
+
+const tFont MyFont = { 29, MyFont_array };
+
+
+!! note - do global search/replace <value not defined>/0 in font file !!
+!! uncomment structure typedefs as needed !!
+
+----------------------------------------------------------------------
+#if (0x0 == 0x0)
+static const uint8_t image_data_MyFont_0xe29590[FIX_ZERO_LENGTH(8)] = {
+    // ████████
+    // ████████
+    // ████████
+    // ∙∙∙∙∙∙∙∙
+    // ∙∙∙∙∙∙∙∙
+    // ████████
+    // ████████
+    // ████████
+    0xff, 0xff, 0xff, 0x00, 0x00, 0xff, 0xff, 0xff
+#if 0 == 8
+    0xff
+#endif
+};
+
+static const tImage MyFont_0xe29590 = { image_data_MyFont_0xe29590,
+    0, 0, 8};
+#endif
+--------------------------------------------------------------------
+
+// toshiba test font from application note, chr[0x80] ...
+unsigned char font_data[]=
+{
+		0x01, 0x01, 0xFF, 0x01, 0x3F, 0x21, 0x3F, 0x21,
+		0x00, 0x00, 0xFF, 0x00, 0xFC, 0x04, 0xFC, 0x04,
+		0x21, 0x3F, 0x05, 0x0D, 0x19, 0x31, 0xE1, 0x01,
+		0x04, 0xFC, 0x40, 0x60, 0x30, 0x1C, 0x07, 0x00,
+		0x08, 0x08, 0xFF, 0x08, 0x09, 0x01, 0x01, 0x7F,
+		0x10, 0x10, 0xFF, 0x10, 0x10, 0x00, 0x00, 0xFC,
+		0x00, 0x00, 0x00, 0x01, 0x07, 0x3C, 0xE7, 0x00,
+		0x18, 0x30, 0x60, 0xC0, 0x00, 0x00, 0xE0, 0x3F
+};
+
+#endif
+
+void lcd_font_load(void)
+{
+    int i,c;
+    unsigned char s; // = *MyFont->chars[c]->image[i];
+    lcd_ADPSET(_CG_STARTADDRESS+0x400);	// starting at chr[0x80]
+    lcd_check_status(STA3);
+    lcd_command(AWRON);
+    
+    for(c = 0; c < MyFont.length; c++)
+    {
+	for (i = 0; i < MyFont.chars[c].image->dataSize; i++)
+        {
+	    while(!((CLCD_CMD & STA3) == STA3));
+	    s = MyFont.chars[c].image->data[i];
+//	    s = font_data[c*8 + i];
+	    CLCD_DATA=(s); 
+	}
+    }
+
+    lcd_check_status(STA3);
+    lcd_command(AWROFF);
+
 }
 
 /*
