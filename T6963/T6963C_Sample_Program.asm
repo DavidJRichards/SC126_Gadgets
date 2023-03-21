@@ -10,51 +10,65 @@ TXHOME 		EQU 40H 		; SET TXT HM ADD
 TXAREA 		EQU 41H 		; SET TXT AREA 
 GRHOME 		EQU 42H 		; SET GR HM ADD 
 GRAREA 		EQU 43H 		; SET GR AREA 
+CURSOR          EQU 21H                 ; cursor pointer
 OFFSET 		EQU 22H 		; SET OFFSET ADD 
 ADPSET 		EQU 24H 		; SET ADD PTR 
 AWRON 		EQU 0B0H 		; SET AUTO WRITE MODE 
 AWROFF 		EQU 0B2H 		; RESET AUTO WRITE MODE  
-
+DATAWR          EQU 0C0H                ; data write, address unchanged
 CMDP 		EQU 01H 		; CMD PORT 
 DP 		EQU 00H 		; DATA PORT 
+
+; 16 x 40 @ 8x8
+
+LCD_XWIDTH              EQU 240
+LCD_YHEIGHT             EQU 128
+LCD_KBYTES              EQU 8
+
+LCD_WIDTH               EQU 40
+LCD_HEIGHT              EQU 16 
+
+
+_TH                  EQU 0
+_TA                  EQU 40
+_GH                  EQU 280H
+_GA                  EQU 40
+
+
+
 ;STACK 		EQU 9FFFH 		; STACK POINTER BASE ADDRESS 
 ; 
                 ORG 0100H 
 START: 
 ;              	LD SP, STACK 
 ; 
-;   SET TEXT HOME ADDRESS 
-; 
-		LD HL, 0000H   		; TEXT HOME ADDRESS 0000H 
-		CALL DT2 
-		LD A, TXHOME 
-		CALL CMD 
-; 
 ;   SET GRAPHIC HOME ADDRESS 
 ; 
-		LD HL, 0200H   		; GRAPHIC HOME ADDRESS 0200H 
+		LD HL, _GH   		; GRAPHIC HOME ADDRESS 0200H 
 		CALL DT2 
 		LD A, GRHOME 
 		CALL CMD 
 ; 
-;   SET TEXT AREA 
-; 
-		 LD HL, 0014H  		; TEXT AREA 20 Columns 
-		 CALL DT2 
-		 LD A, TXAREA 
-		 CALL CMD 
-; 
 ;   SET GRAPHIC AREA 
 ; 
-		 LD HL, 0014H  		; GRAPHIC AREA 20 Columns 
+		 LD HL, _GA  		; GRAPHIC AREA 20 Columns 
 		 CALL DT2 
 		 LD A, GRAREA 
 		 CALL CMD 
 ; 
-;   MODE SET (OR MODE, Internal Character Generator MODE) 
+;   SET TEXT HOME ADDRESS 
 ; 
-		LD A,80H 
+		LD HL, _TH   		; TEXT HOME ADDRESS 0000H 
+		CALL DT2 
+		LD A, TXHOME 
 		CALL CMD 
+; 
+;   SET TEXT AREA 
+; 
+		 LD HL, _TA  		; TEXT AREA 20 Columns 
+		 CALL DT2 
+		 LD A, TXAREA 
+		 CALL CMD 
 ; 
 ;   SET OFFSET REGISTER (00010 10000000 000 = 1400H CG RAM START ADDRESS) 
 ;      					CHARACTER CODE 80H 
@@ -66,12 +80,43 @@ START:
 ;   DISPLAY MODE 
 ;   (TEXT ON, GRAPHICS OFF, CURSOR OFF) 
 ; 
-		LD A, 94H 
+		LD A, 97H 
+		CALL CMD 
+;
+; cursor
+;
+                ld a,0a1h
+                call CMD				
+; 
+;   MODE SET (OR MODE, Internal Character Generator MODE) 
+; 
+		LD A,80H 
+		CALL CMD 
+; 
+;   WRITE TEXT DISPLAY DATA (INTERNAL CG) DJRM
+;
+		LD HL, _TH+600+36  
+		CALL DT2 
+		LD A, ADPSET 
+		CALL CMD 
+
+		LD A, AWRON  		; SET DATA AUTO WRITE 
+		CALL CMD 
+
+		LD B, 4  		; 13 Character 
+		LD DE, DJRM 
+TXLP4: 
+		LD A, (DE)  		; WRITE DATA 
+		CALL ADT 
+		INC DE 
+		DJNZ TXLP4 
+
+		LD A, AWROFF  		; AUTO RESET 
 		CALL CMD 
 ; 
 ;   WRITE TEXT BLANK CODE 
 ; 
-		LD HL, 0000H  		; SET Address Pointer 0000H 
+		LD HL, _TH  		; SET Address Pointer 0000H 
 		CALL DT2  		; (TEXT HOME ADDRESS) 
 		LD A, ADPSET 
 		CALL CMD 
@@ -79,7 +124,7 @@ START:
 		LD A, AWRON  		; SET DATA AUTO WRITE
 		CALL CMD  		; 
 
-		LD BC, 00A0H  		; 20 Columns × 8Lines (160 = A0H) 
+		LD BC, 280H  		; 40 Columns × 16 Lines (640 = 280H) 
 TXCR: 
 		LD A, 00H  		; WRITE DATA 00H 
 		CALL ADT  		; (WRITE BLANK CODE) 
@@ -115,30 +160,9 @@ EXCG:
 		LD A, AWROFF  		; AUTO RESET 
 		CALL  CMD 
 ; 
-;   WRITE TEXT DISPLAY DATA (INTERNAL CG) 
-;
-		LD HL, 0040H  		; Address Pointer 3 Line, 4 Column 
-		CALL DT2 
-		LD A, ADPSET 
-		CALL CMD 
-
-		LD A, AWRON  		; SET DATA AUTO WRITE 
-		CALL CMD 
-
-		LD B, 0DH  		; 13 Character 
-		LD DE, TXPRT 
-TXLP1: 
-		LD A, (DE)  		; WRITE DATA 
-		CALL ADT 
-		INC DE 
-		DJNZ TXLP1 
-
-		LD A, AWROFF  		; AUTO RESET 
-		CALL CMD 
-; 
 ;   WRITE TEXT DISPLAY DATA (EXTERNAL CG upper part) 
 ; 
-		LD HL, 006CH  		; Address Pointer 5 Line, 8 Column 
+		LD HL, _TH+80+98 		; Address Pointer 5 Line, 8 Column 
 		CALL DT2 
 		LD A, ADPSET 
 		CALL CMD 
@@ -159,7 +183,7 @@ TXLP2:
 ; 
 ;   WRITE TEXT DISPLAY DATA (EXTERNAL CG lower part) 
 ; 
-		LD HL, 0080H  		; Address Pointer 6 Line, 8 Column 
+		LD HL, _TH+120+98  		; Address Pointer 6 Line, 8 Column 
 		CALL DT2 
 		LD A, ADPSET 
 		CALL CMD 
@@ -177,6 +201,48 @@ TXLP3:
 
 		LD A, AWROFF  		; AUTO RESET 
 		CALL CMD 
+
+; 
+;   WRITE TEXT DISPLAY DATA (INTERNAL CG) 
+;
+		LD HL, _TH+94  		; Address Pointer 3 Line, 4 Column 
+		CALL DT2 
+		LD A, ADPSET 
+		CALL CMD 
+
+		LD A, AWRON  		; SET DATA AUTO WRITE 
+		CALL CMD 
+
+		LD B, 0DH  		; 13 Character 
+		LD DE, TXPRT 
+TXLP1: 
+		LD A, (DE)  		; WRITE DATA 
+		CALL ADT 
+		INC DE 
+		DJNZ TXLP1 
+
+		LD A, AWROFF  		; AUTO RESET 
+		CALL CMD 
+
+                
+		LD HL, _TH+4    ; addr
+		CALL DT2 
+		LD A, ADPSET    ; set
+		CALL CMD 
+
+		LD HL, _TH+4    ; addr
+		CALL DT2 
+		LD A, CURSOR    ; set
+		CALL CMD 
+                
+                LD A, 033H
+                CALL T6_PUTC
+                
+                LD A, 034H
+                CALL DT1                
+                LD A, DATAWR    ; write
+                CALL CMD
+		
 PEND: 
                 ret
 		JP PEND  		; PROGRAM END 
@@ -237,6 +303,19 @@ ADT1: 		IN A, (CMDP)
 		POP AF 
 		OUT (DP), A  		; WRITE DATA 
 		RET 
+		
+;
+; write data
+;
+T6_PUTC:
+                PUSH AF
+                CALL DT1                
+                LD A, DATAWR    ; write
+                CALL    CMD
+                POP     AF      
+		RET 
+		
+		
 ;
 ; Subroutine end
 ;
@@ -245,6 +324,10 @@ ADT1: 		IN A, (CMDP)
 TXPRT:
 		DEFB	34H, 00H, 2FH, 00H, 33H, 00H		; INTERNAL CG CODE "T O S H I B A"
 		DEFB	28H, 00H, 29H, 00H, 22H, 00H, 21H
+
+
+DJRM:          DEFB     24H,2AH,32H,2DH
+
 EXPRT1:
 		DEFB	80H, 81H, 00H, 00H, 84H, 85H		; EXTERNAL CG CODE (semi graphic)
 EXPRT2:
